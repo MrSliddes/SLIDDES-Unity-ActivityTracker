@@ -18,11 +18,8 @@ https://docs.unity3d.com/Manual/upm-ui-giturl.html
 
 ## How To Use It
 1. After installing navigate in Unity to window > SLIDDES > Activity Tracker to view your activity data
-
-![Img Activity Tracker 1](https://github.com/MrSliddes/SLIDDES-Unity-ActivityTracker/blob/GitHub-Info/SLIDDES_Unity_ActivityTracker_Img_1.jpg)
-
-3. Leave it open in the background to track your activity
-4. Thats it!
+2. Leave it open in the background to track your activity
+3. Thats it!
 Note: As said in About, the data is only updated when the Activity Window is opend. If you forget to open it when you
 start working you can still open it to save your session time.
 
