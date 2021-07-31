@@ -5,7 +5,7 @@ Keep track of what you do in Unity. SLIDDES © 2021
 Hello and thank you for using SLIDDES Software.
 SLIDDES Unity Activity Tracker tracks what you do when using unity and displays it in a handy overview.
 
-![Img Activity Tracker 0](https://github.com/MrSliddes/SLIDDES-Unity-ActivityTracker/blob/Github-Info/SLIDDES_Unity_ActivityTracker_Img_0.jpg)
+![Img Activity Tracker 0](https://github.com/MrSliddes/SLIDDES-Unity-ActivityTracker/blob/GitHub-Info/SLIDDES_Unity_ActivityTracker_Img_0.jpg)
 
 - SLIDDES Unity Activity Tracker only tracks when the editor window Activity Tracker is opened.
 - The activity data is only saved locally on your pc, SLIDDES does not use this data.
@@ -19,7 +19,7 @@ https://docs.unity3d.com/Manual/upm-ui-giturl.html
 ## How To Use It
 1. After installing navigate in Unity to window > SLIDDES > Activity Tracker to view your activity data
 
-![Img Activity Tracker 1](https://github.com/MrSliddes/SLIDDES-Unity-ActivityTracker/blob/Github-Info/SLIDDES_Unity_ActivityTracker_Img_1.jpg)
+![Img Activity Tracker 1](https://github.com/MrSliddes/SLIDDES-Unity-ActivityTracker/blob/GitHub-Info/SLIDDES_Unity_ActivityTracker_Img_1.jpg)
 
 3. Leave it open in the background to track your activity
 4. Thats it!
