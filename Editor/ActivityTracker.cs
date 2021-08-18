@@ -27,11 +27,11 @@ namespace SLIDDES.ActivityTracker
         /// <summary>
         /// The current unique session ID. every time when the editor closes this id gets incremented by 1
         /// </summary>
-        private uint sessionID;
+        private int sessionID;
         /// <summary>
         /// The last known session id to the editor window. Only gets updated when it isnt equal to sessionID
         /// </summary>
-        private uint lastKnownSessionID;
+        private int lastKnownSessionID;
         /// <summary>
         /// The name of the window selected when outside Unity
         /// </summary>
@@ -39,7 +39,7 @@ namespace SLIDDES.ActivityTracker
         /// <summary>
         /// The total time spend in this project
         /// </summary>
-        private double totalProjectTime;
+        private double totalProjectTime = 0;
         /// <summary>
         /// The total global time of working in Unity projects
         /// </summary>
@@ -70,6 +70,8 @@ namespace SLIDDES.ActivityTracker
         /// </summary>
         private TimeSpan ts;
 
+        private string EDITORPREF_PREFIX = "SLIDDES_Unity_ActivityTracker_";
+
         // Editor
         private bool foldoutOverviewCurrentSession;
         private bool foldoutOverviewTotalSession;
@@ -87,6 +89,8 @@ namespace SLIDDES.ActivityTracker
 
         private void OnEnable()
         {
+            EDITORPREF_PREFIX += Application.productName + "_";
+
             EditorApplication.update += CheckFocusedWindow;
             EditorApplication.quitting += OnEditorApplicationQuit; // Dont remove it in ondestroy
             AssemblyReloadEvents.beforeAssemblyReload += OnBeforeAssemblyReload;
@@ -96,31 +100,24 @@ namespace SLIDDES.ActivityTracker
             currentEditorWindow = this;
             sessionActivities.Add("Activity Tracker", 0);
 
-            // Check session
-
             // Load ids
-            lastKnownSessionID = 0;
-            uint.TryParse(EditorPrefs.GetString(Application.productName.ToLower() + "_sliddes_at_lastKnownSessionID", "0"), out lastKnownSessionID);
-            sessionID = 1;
-            uint.TryParse(EditorPrefs.GetString(Application.productName.ToLower() + "_sliddes_at_sessionID", "1"), out sessionID);
+            lastKnownSessionID = EditorPrefs.GetInt(EDITORPREF_PREFIX + "lastKnownSessionID", 0);
+            sessionID = EditorPrefs.GetInt(EDITORPREF_PREFIX + "sessionID", 1);
 
             // Check if session ID has changed
-            if(lastKnownSessionID != sessionID)
-            {
-                // New session
-                lastKnownSessionID = sessionID;
-            }
-            else
-            {
-                // Continue with previous session
-            }
+            if(lastKnownSessionID != sessionID) lastKnownSessionID = sessionID;
 
             // Load total project time
-            totalProjectTime = 0;
-            string totalTimeString = EditorPrefs.GetString(Application.productName.ToLower() + "_sliddes_at_totalProjectTime", "0");
-            double.TryParse(totalTimeString, out totalProjectTime);
+            double.TryParse(EditorPrefs.GetString(EDITORPREF_PREFIX + "totalProjectTime", "0"), out totalProjectTime);
 
             Load();
+        }
+
+        private void OnDisable()
+        {
+            EditorApplication.update -= CheckFocusedWindow;
+            AssemblyReloadEvents.beforeAssemblyReload -= OnBeforeAssemblyReload;
+            Save();
         }
 
         private void OnDestroy()
@@ -380,13 +377,16 @@ namespace SLIDDES.ActivityTracker
             // Save the session id
             UnityEngine.Debug.Log("[Activity Tracker] Session " + sessionID + " ended.");
             sessionID++;
-            EditorPrefs.SetString(Application.productName.ToLower() + "_sliddes_at_sessionID", sessionID.ToString());
-            // Save to total time
+            EditorPrefs.SetInt(EDITORPREF_PREFIX + "sessionID", sessionID);
+
+            // Save total project time
             totalProjectTime += EditorApplication.timeSinceStartup;
-            EditorPrefs.SetString(Application.productName.ToLower() + "_sliddes_at_totalProjectTime", totalProjectTime.ToString());
+            EditorPrefs.SetString(EDITORPREF_PREFIX + "totalProjectTime", totalProjectTime.ToString());
+
             // Save total time to global time
             totalGlobalTime += EditorApplication.timeSinceStartup;
-            EditorPrefs.SetString("_sliddes_at_totalGlobalTime", totalGlobalTime.ToString());
+            EditorPrefs.SetString(EDITORPREF_PREFIX + "totalGlobalTime", totalGlobalTime.ToString());
+
             // Save dict to total dict
             // Merge editorWindowsAccesed to totalEditorWindowsAccesed
             foreach(var item in sessionActivities)
@@ -408,15 +408,16 @@ namespace SLIDDES.ActivityTracker
             foreach(var item in allSessionsActivities)
             {
                 s += item.Key + "#";
-                EditorPrefs.SetString(Application.productName.ToLower() + "_sliddes_at_allSessionsActivities_" + item.Key, item.Value.ToString());
+                EditorPrefs.SetString(EDITORPREF_PREFIX + "allSessionsActivities_" + item.Key, item.Value.ToString());
             }
-            EditorPrefs.SetString(Application.productName.ToLower() + "_sliddes_at_allSessionsActivities", s);
+            EditorPrefs.SetString(EDITORPREF_PREFIX + "allSessionsActivities", s);
+
             // Reset current session dict values
             foreach(var item in sessionActivities)
             {
-                if(EditorPrefs.HasKey(Application.productName.ToLower() + "_sliddes_at_sessionActivities_" + item.Key)) EditorPrefs.DeleteKey(Application.productName.ToLower() + "_sliddes_at_sessionActivities_" + item.Key);
+                if(EditorPrefs.HasKey(EDITORPREF_PREFIX + "sessionActivities_" + item.Key)) EditorPrefs.DeleteKey(EDITORPREF_PREFIX + "sessionActivities_" + item.Key);
             }
-            EditorPrefs.SetString(Application.productName.ToLower() + "_sliddes_at_sessionActivities", "");
+            EditorPrefs.SetString(EDITORPREF_PREFIX + "sessionActivities", "");
         }
 
         /// <summary>
@@ -425,19 +426,21 @@ namespace SLIDDES.ActivityTracker
         private void Save()
         {
             // Save lastKnownSessionID
-            EditorPrefs.SetString(Application.productName.ToLower() + "_sliddes_at_lastKnownSessionID", lastKnownSessionID.ToString());
+            EditorPrefs.SetInt(EDITORPREF_PREFIX + "lastKnownSessionID", lastKnownSessionID);
             // Save sessionID
-            EditorPrefs.SetString(Application.productName.ToLower() + "_sliddes_at_sessionID", sessionID.ToString());
+            EditorPrefs.SetInt(EDITORPREF_PREFIX + "sessionID", sessionID);
+
             // Save editor window dict values
             string s = "";
             foreach(var item in sessionActivities)
             {
                 s += item.Key + "#";
-                EditorPrefs.SetString(Application.productName.ToLower() + "_sliddes_at_sessionActivities_" + item.Key, item.Value.ToString());
+                EditorPrefs.SetString(EDITORPREF_PREFIX + "sessionActivities_" + item.Key, item.Value.ToString());
             }
-            EditorPrefs.SetString(Application.productName.ToLower() + "_sliddes_at_sessionActivities", s);
+            EditorPrefs.SetString(EDITORPREF_PREFIX + "sessionActivities", s);
+
             // Save include non preset windows
-            EditorPrefs.SetBool("sliddes_at_includeNonPresetActivities", includeNonPresetActivities);
+            EditorPrefs.SetBool(EDITORPREF_PREFIX + "includeNonPresetActivities", includeNonPresetActivities);
         }
 
         /// <summary>
@@ -447,45 +450,45 @@ namespace SLIDDES.ActivityTracker
         {
             // Load any saved dictionary values
             string[] names = { "" };
-            if(EditorPrefs.HasKey(Application.productName.ToLower() + "_sliddes_at_sessionActivities")) names = EditorPrefs.GetString(Application.productName.ToLower() + "_sliddes_at_sessionActivities").Split('#');
+            if(EditorPrefs.HasKey(EDITORPREF_PREFIX + "sessionActivities")) names = EditorPrefs.GetString(EDITORPREF_PREFIX + "sessionActivities").Split('#');
             // For every name get the time value
             for(int i = 0; i < names.Length; i++)
             {
                 string key = names[i].Replace("#", "");
                 if(string.IsNullOrEmpty(key)) continue;
-                double value = 0;
-                string timeInString = EditorPrefs.GetString(Application.productName.ToLower() + "_sliddes_at_sessionActivities_" + key, "0");
-                double.TryParse(timeInString, out value);
+                string timeInString = EditorPrefs.GetString(EDITORPREF_PREFIX + "sessionActivities_" + key, "0");
+                double.TryParse(timeInString, out double value);
                 // Add to dict
                 if(!sessionActivities.ContainsKey(key)) sessionActivities.Add(key, value);
                 else sessionActivities[key] = value;
             }
+
             // Load total saved dictionary values
-            names = EditorPrefs.GetString(Application.productName.ToLower() + "_sliddes_at_allSessionsActivities").Split('#');
+            names = EditorPrefs.GetString(EDITORPREF_PREFIX + "allSessionsActivities").Split('#');
             foreach(var item in names)
             {
                 string key = item.Replace("#", "");
                 if(string.IsNullOrEmpty(key)) continue;
-                double value = 0;
-                string timeInString = EditorPrefs.GetString(Application.productName.ToLower() + "_sliddes_at_allSessionsActivities_" + key, "0");
-                double.TryParse(timeInString, out value);
+                string timeInString = EditorPrefs.GetString(EDITORPREF_PREFIX + "allSessionsActivities_" + key, "0");
+                double.TryParse(timeInString, out double value);
                 // Add to dict
                 if(!allSessionsActivities.ContainsKey(key)) allSessionsActivities.Add(key, value);
                 else allSessionsActivities[key] = value;
             }
+
             // Load total global time
-            string s = EditorPrefs.GetString("_sliddes_at_totalGlobalTime", "0");
+            string s = EditorPrefs.GetString(EDITORPREF_PREFIX + "totalGlobalTime", "0");
             double.TryParse(s, out totalGlobalTime);
+
             // Load include non preset windows
-            includeNonPresetActivities = EditorPrefs.GetBool("sliddes_at_includeNonPresetActivities");
+            includeNonPresetActivities = EditorPrefs.GetBool(EDITORPREF_PREFIX + "includeNonPresetActivities");
         }
 
         /// <summary>
         /// Reset all activity tracker values
         /// </summary>
         private void ResetActivityTracker()
-        {
-            UnityEngine.Debug.Log("[Activity Tracker] Resetted");
+        {            
             lastKnownSessionID = 0;
             sessionID = 1;
             totalProjectTime = 0;
@@ -495,18 +498,20 @@ namespace SLIDDES.ActivityTracker
             // Delete current session activities
             foreach(var item in sessionActivities)
             {
-                if(EditorPrefs.HasKey(Application.productName.ToLower() + "_sliddes_at_sessionActivities_" + item.Key)) EditorPrefs.DeleteKey(Application.productName.ToLower() + "_sliddes_at_sessionActivities_" + item.Key);
+                if(EditorPrefs.HasKey(EDITORPREF_PREFIX + "sessionActivities_" + item.Key)) EditorPrefs.DeleteKey(EDITORPREF_PREFIX + "sessionActivities_" + item.Key);
             }
-            EditorPrefs.SetString(Application.productName.ToLower() + "_sliddes_at_sessionActivities", "");
+            EditorPrefs.SetString(EDITORPREF_PREFIX + "sessionActivities", "");
             sessionActivities = new Dictionary<string, double>();
+
             // Delete all sessions activities
             foreach(var item in allSessionsActivities)
             {
-                if(EditorPrefs.HasKey(Application.productName.ToLower() + "_sliddes_at_allSessionsActivities_" + item.Key)) EditorPrefs.DeleteKey(Application.productName.ToLower() + "_sliddes_at_allSessionsActivities_" + item.Key);
+                if(EditorPrefs.HasKey(EDITORPREF_PREFIX + "allSessionsActivities_" + item.Key)) EditorPrefs.DeleteKey(EDITORPREF_PREFIX + "allSessionsActivities_" + item.Key);
             }
-            EditorPrefs.SetString(Application.productName.ToLower() + "_sliddes_at_allSessionsActivities", "");
+            EditorPrefs.SetString(EDITORPREF_PREFIX + "allSessionsActivities", "");
             allSessionsActivities = new Dictionary<string, double>();
 
+            UnityEngine.Debug.Log("[Activity Tracker] Resetted");
             Save();
             Close();
         }
