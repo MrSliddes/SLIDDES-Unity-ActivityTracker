@@ -39,7 +39,7 @@ namespace SLIDDES.ActivityTracker
         /// <summary>
         /// The total time spend in this project
         /// </summary>
-        private double totalProjectTime = 0;
+        private double totalProjectTime;
         /// <summary>
         /// The total global time of working in Unity projects
         /// </summary>
@@ -87,28 +87,21 @@ namespace SLIDDES.ActivityTracker
             window.minSize = new Vector2(320, 160);            
         }
 
-        private void OnEnable()
+        private void Awake()
         {
             EDITORPREF_PREFIX += Application.productName + "_";
+            sessionActivities.Add("Activity Tracker", 0d);
+        }
 
+        private void OnEnable()
+        {
             EditorApplication.update += CheckFocusedWindow;
-            EditorApplication.quitting += OnEditorApplicationQuit; // Dont remove it in ondestroy
+            EditorApplication.quitting += OnEditorApplicationQuit;
             AssemblyReloadEvents.beforeAssemblyReload += OnBeforeAssemblyReload;
 
             stopwatchCurrentEditorWindow = new Stopwatch();
             stopwatchCurrentEditorWindow.Start();
             currentEditorWindow = this;
-            sessionActivities.Add("Activity Tracker", 0);
-
-            // Load ids
-            lastKnownSessionID = EditorPrefs.GetInt(EDITORPREF_PREFIX + "lastKnownSessionID", 0);
-            sessionID = EditorPrefs.GetInt(EDITORPREF_PREFIX + "sessionID", 1);
-
-            // Check if session ID has changed
-            if(lastKnownSessionID != sessionID) lastKnownSessionID = sessionID;
-
-            // Load total project time
-            double.TryParse(EditorPrefs.GetString(EDITORPREF_PREFIX + "totalProjectTime", "0"), out totalProjectTime);
 
             Load();
         }
@@ -116,13 +109,7 @@ namespace SLIDDES.ActivityTracker
         private void OnDisable()
         {
             EditorApplication.update -= CheckFocusedWindow;
-            AssemblyReloadEvents.beforeAssemblyReload -= OnBeforeAssemblyReload;
-            Save();
-        }
-
-        private void OnDestroy()
-        {
-            EditorApplication.update -= CheckFocusedWindow;
+            //EditorApplication.quitting -= OnEditorApplicationQuit; Dont remove or it wont be triggerd by unity when exiting
             AssemblyReloadEvents.beforeAssemblyReload -= OnBeforeAssemblyReload;
             Save();
         }
@@ -372,6 +359,28 @@ namespace SLIDDES.ActivityTracker
             Save();
         }
 
+
+        #region Double conversion
+
+        private double GetDouble(string key)
+        {
+            var retrieveBytes = new byte[8];
+            Array.Copy(BitConverter.GetBytes(PlayerPrefs.GetInt(key + "_doubleLowBits")), retrieveBytes, 4);
+            Array.Copy(BitConverter.GetBytes(PlayerPrefs.GetInt(key + "_doubleHighBits")), 0, retrieveBytes, 4, 4);
+            return BitConverter.ToDouble(retrieveBytes, 0);
+        }
+
+        private void SetDouble(string key, double defaultValue)
+        {
+            var storeBytes = BitConverter.GetBytes(defaultValue);
+            var storeIntLow = BitConverter.ToInt32(storeBytes, 0);
+            var storeIntHigh = BitConverter.ToInt32(storeBytes, 4);
+            PlayerPrefs.SetInt(key + "_doubleLowBits", storeIntLow);
+            PlayerPrefs.SetInt(key + "_doubleHighBits", storeIntHigh);
+        }
+
+        #endregion
+
         private void OnEditorApplicationQuit()
         {
             // Save the session id
@@ -381,11 +390,11 @@ namespace SLIDDES.ActivityTracker
 
             // Save total project time
             totalProjectTime += EditorApplication.timeSinceStartup;
-            EditorPrefs.SetString(EDITORPREF_PREFIX + "totalProjectTime", totalProjectTime.ToString());
+            SetDouble(EDITORPREF_PREFIX + "totalProjectTime", totalProjectTime);
 
             // Save total time to global time
             totalGlobalTime += EditorApplication.timeSinceStartup;
-            EditorPrefs.SetString(EDITORPREF_PREFIX + "totalGlobalTime", totalGlobalTime.ToString());
+            SetDouble(EDITORPREF_PREFIX + "totalGlobalTime", totalGlobalTime);
 
             // Save dict to total dict
             // Merge editorWindowsAccesed to totalEditorWindowsAccesed
@@ -408,7 +417,7 @@ namespace SLIDDES.ActivityTracker
             foreach(var item in allSessionsActivities)
             {
                 s += item.Key + "#";
-                EditorPrefs.SetString(EDITORPREF_PREFIX + "allSessionsActivities_" + item.Key, item.Value.ToString());
+                SetDouble(EDITORPREF_PREFIX + "allSessionsActivities_" + item.Key, item.Value);
             }
             EditorPrefs.SetString(EDITORPREF_PREFIX + "allSessionsActivities", s);
 
@@ -418,6 +427,8 @@ namespace SLIDDES.ActivityTracker
                 if(EditorPrefs.HasKey(EDITORPREF_PREFIX + "sessionActivities_" + item.Key)) EditorPrefs.DeleteKey(EDITORPREF_PREFIX + "sessionActivities_" + item.Key);
             }
             EditorPrefs.SetString(EDITORPREF_PREFIX + "sessionActivities", "");
+
+            UnityEngine.Debug.Log("[SLIDDES Activity Tracker] OnEditorApplicationQuit");
         }
 
         /// <summary>
@@ -435,7 +446,7 @@ namespace SLIDDES.ActivityTracker
             foreach(var item in sessionActivities)
             {
                 s += item.Key + "#";
-                EditorPrefs.SetString(EDITORPREF_PREFIX + "sessionActivities_" + item.Key, item.Value.ToString());
+                SetDouble(EDITORPREF_PREFIX + "sessionActivities_" + item.Key, item.Value);
             }
             EditorPrefs.SetString(EDITORPREF_PREFIX + "sessionActivities", s);
 
@@ -456,8 +467,7 @@ namespace SLIDDES.ActivityTracker
             {
                 string key = names[i].Replace("#", "");
                 if(string.IsNullOrEmpty(key)) continue;
-                string timeInString = EditorPrefs.GetString(EDITORPREF_PREFIX + "sessionActivities_" + key, "0");
-                double.TryParse(timeInString, out double value);
+                double value = GetDouble(EDITORPREF_PREFIX + "sessionActivities_" + key);
                 // Add to dict
                 if(!sessionActivities.ContainsKey(key)) sessionActivities.Add(key, value);
                 else sessionActivities[key] = value;
@@ -469,19 +479,27 @@ namespace SLIDDES.ActivityTracker
             {
                 string key = item.Replace("#", "");
                 if(string.IsNullOrEmpty(key)) continue;
-                string timeInString = EditorPrefs.GetString(EDITORPREF_PREFIX + "allSessionsActivities_" + key, "0");
-                double.TryParse(timeInString, out double value);
+                double value = GetDouble(EDITORPREF_PREFIX + "allSessionsActivities_" + key);
                 // Add to dict
                 if(!allSessionsActivities.ContainsKey(key)) allSessionsActivities.Add(key, value);
                 else allSessionsActivities[key] = value;
             }
 
+            // Load total project time
+            totalProjectTime = GetDouble(EDITORPREF_PREFIX + "totalProjectTime");
+
             // Load total global time
-            string s = EditorPrefs.GetString(EDITORPREF_PREFIX + "totalGlobalTime", "0");
-            double.TryParse(s, out totalGlobalTime);
+            totalGlobalTime = GetDouble(EDITORPREF_PREFIX + "totalGlobalTime");
 
             // Load include non preset windows
             includeNonPresetActivities = EditorPrefs.GetBool(EDITORPREF_PREFIX + "includeNonPresetActivities");
+
+            // Load ids
+            lastKnownSessionID = EditorPrefs.GetInt(EDITORPREF_PREFIX + "lastKnownSessionID", 0);
+            sessionID = EditorPrefs.GetInt(EDITORPREF_PREFIX + "sessionID", 1);
+
+            // Check if session ID has changed
+            if(lastKnownSessionID != sessionID) lastKnownSessionID = sessionID;
         }
 
         /// <summary>
@@ -491,8 +509,8 @@ namespace SLIDDES.ActivityTracker
         {            
             lastKnownSessionID = 0;
             sessionID = 1;
-            totalProjectTime = 0;
-            totalGlobalTime = 0;
+            totalProjectTime = 0d;
+            totalGlobalTime = 0d;
             includeNonPresetActivities = false;
             // Delete all editorprefs values
             // Delete current session activities
